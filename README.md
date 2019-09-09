@@ -30,3 +30,32 @@ struct ICallback
 Класс должен быть как можно эффективнее при следующих условиях: средний поток, подаваемый на вход – 500 Mbit/s, средняя длина блока входных данных – 1024 байт.
 
 В решении важна простота и читаемость.
+
+The problem
+
+You need to write an implementation of the following interface:
+
+struct IReceiver {
+    virtual void Receive(const char* data, unsigned int size) = 0;
+    virtual ~Receive() = default;
+};
+
+The Receive member function is called continuously with two types of data: binary and text.
+
+    The binary data always starts with byte 0x24, followed by a 4-byte integer, indicating the size of the packet. Then the packet body follows.
+
+    The text data never starts with byte 0x24. No length is provided. The packet body always ends with two consecutive empty lines \r\n\r\n.
+
+The important caveat is that a packet can span several Receive invocations. Also a single Receive invocation might be provided with several packets at once.
+
+Each time a complete packet is received, the IReceiver descendant needs to invoke the right member function of the following callback class:
+
+struct ICallback {
+    virtual void BinaryPacket(const char* data, unsigned int size) = 0;
+    virtual void TextPacket(const char* data, unsigned int size) = 0;
+    virtual ~ICallback() = default;
+};
+
+The BinaryPacket and TextPacket functions should both receive a complete packet body, without the binary header or the two trailing empty lines.
+
+The solution is judged by its performance, simplicity and readability. The language to use is C++.

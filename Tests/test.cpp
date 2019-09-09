@@ -83,7 +83,7 @@ TEST(ISS_TASK, TextBinaryPacket_1Block)
 }
 
 //блок: бинарный-текстовый
-TEST(ISS_TASK,BinaryTextPacket_1Block)
+TEST(ISS_TASK, BinaryTextPacket_1Block)
 {
 	const std::shared_ptr<PacketCallback> callback(std::make_shared<PacketCallback>());
 	{

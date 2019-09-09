@@ -46,7 +46,6 @@ void PacketReceiver::WorkWithData() noexcept
 
 void PacketReceiver::ParseAndSendPacket(const Block& block) const noexcept
 {
-	PacketType type;
 	std::vector<char>& blockData = tempPacket.data_;
 
 	auto& [data, size] = block;
@@ -58,27 +57,29 @@ void PacketReceiver::ParseAndSendPacket(const Block& block) const noexcept
 	{
 		bool isCompletePacket = false;
 		size_t textPacketTailIndex = 0;
-
-		const char* binaryPacketHeaderAddress = static_cast<const char*>(memchr(blockData.data(), tempPacket.binaryPacketHeaderByte_, blockSize));
-		const char* textPacketTailAddress = memstr(blockData.data(), tempPacket.textPacketTailString_, blockSize);
-
-		if (binaryPacketHeaderAddress != nullptr && textPacketTailAddress != nullptr)	// в блоке есть и бинарный (или часть), и текстовый пакет
+		if (tempPacket.type_ == PacketType::None)
 		{
-			const size_t binaryPacketHeaderIndex = binaryPacketHeaderAddress - blockData.data();
-			textPacketTailIndex = textPacketTailAddress - blockData.data();
-			type = (binaryPacketHeaderIndex == 0) ? PacketType::Binary : PacketType::Text; // бинарный пакет начинается с нулевого индекса			
-		}
-		else if (binaryPacketHeaderAddress != nullptr)
-			type = PacketType::Binary;
-		else if (textPacketTailAddress != nullptr)
-		{
-			type = PacketType::Text;
-			textPacketTailIndex = textPacketTailAddress - blockData.data();
-		}
-		else // блок текстовый, но нет признака конца
-			break;
+			const char* binaryPacketHeaderAddress = static_cast<const char*>(memchr(blockData.data(), tempPacket.binaryPacketHeaderByte_, blockSize));
+			const char* textPacketTailAddress = memstr(blockData.data(), tempPacket.textPacketTailString_, blockSize);
 
-		if (type == PacketType::Binary)
+			if (binaryPacketHeaderAddress != nullptr && textPacketTailAddress != nullptr)	// в блоке есть и бинарный (или часть), и текстовый пакет
+			{
+				const size_t binaryPacketHeaderIndex = binaryPacketHeaderAddress - blockData.data();
+				textPacketTailIndex = textPacketTailAddress - blockData.data();
+				tempPacket.type_ = (binaryPacketHeaderIndex == 0) ? PacketType::Binary : PacketType::Text; // бинарный пакет начинается с нулевого индекса			
+			}
+			else if (binaryPacketHeaderAddress != nullptr)
+				tempPacket.type_ = PacketType::Binary;
+			else if (textPacketTailAddress != nullptr)
+			{
+				tempPacket.type_ = PacketType::Text;
+				textPacketTailIndex = textPacketTailAddress - blockData.data();
+			}
+			else // блок текстовый, но нет признака конца
+				break;
+		}
+
+		if (tempPacket.type_ == PacketType::Binary)
 		{
 			if (tempPacket.binaryPacketOffset_ <= blockSize)	// в блок влезло хотя бы значение размера пакета
 			{
@@ -94,10 +95,11 @@ void PacketReceiver::ParseAndSendPacket(const Block& block) const noexcept
 					std::move(std::begin(blockData) + nextPacketHeadIndex, std::begin(blockData) + nextPacketHeadIndex + blockSize, std::begin(blockData));
 					blockData.resize(blockSize);
 					isCompletePacket = true;
+					tempPacket.type_ = PacketType::None;
 				}
 			}
 		}
-		else if (type == PacketType::Text)
+		else if (tempPacket.type_ == PacketType::Text)
 		{
 			const auto textPacketSize = textPacketTailIndex;
 			callback_->TextPacket(blockData.data(), textPacketSize);
@@ -106,6 +108,7 @@ void PacketReceiver::ParseAndSendPacket(const Block& block) const noexcept
 			std::move(std::begin(blockData) + nextPacketHeadIndex, std::begin(blockData) + nextPacketHeadIndex + blockSize, std::begin(blockData));
 			blockData.resize(blockSize);
 			isCompletePacket = true;
+			tempPacket.type_ = PacketType::None;
 		}
 
 		if (!isCompletePacket)

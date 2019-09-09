@@ -21,6 +21,7 @@ using Block = std::pair<const char*, size_t>;
 
 struct PacketData
 {
+	PacketType type_ = PacketType::None;
 	std::vector<char> data_;
 	size_t size_{};
 	const size_t uintSize_ = 4;
